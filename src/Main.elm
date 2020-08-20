@@ -22,6 +22,7 @@ main =
 type alias Model =
     { content : String
     , field : Array (Array Int)
+    , nextToken : Int
     }
 
 
@@ -32,7 +33,7 @@ emptyRow =
 
 init : Model
 init =
-    { content = "", field = Array.initialize 6 (always emptyRow) }
+    { content = "", field = Array.initialize 6 (always emptyRow), nextToken = 1 }
 
 
 
@@ -51,7 +52,31 @@ update msg model =
             { model | content = newContent }
 
         ColumnClick columnIndex ->
-            { model | content = String.fromInt columnIndex }
+            { model
+                | content = String.fromInt columnIndex
+                , nextToken = 3 - model.nextToken
+                , field = throwToken model.nextToken columnIndex model.field
+            }
+
+
+throwToken : Int -> Int -> Array (Array Int) -> Array (Array Int)
+throwToken tokenType columnIndex field =
+    updateCell columnIndex 5 tokenType field
+
+
+updateCell : Int -> Int -> Int -> Array (Array Int) -> Array (Array Int)
+updateCell columnIndex rowIndex newValue field =
+    updateRow rowIndex (Array.set columnIndex newValue) field
+
+
+updateRow : Int -> (Array Int -> Array Int) -> Array (Array Int) -> Array (Array Int)
+updateRow rowIndex updateFunction field =
+    Array.set rowIndex (updateFunction (getRow rowIndex field)) field
+
+
+getRow : Int -> Array (Array Int) -> Array Int
+getRow rowIndex field =
+    Maybe.withDefault emptyRow (Array.get rowIndex field)
 
 
 
@@ -69,11 +94,11 @@ gridView grid =
 
 rowView : Array Int -> Html Msg
 rowView row =
-    div [ class "connect_4__row" ] (Array.toList (Array.indexedMap (\i cellValue -> cellView ( i, cellValue )) row))
+    div [ class "connect_4__row" ] (Array.toList (Array.indexedMap (\i cellValue -> cellView i cellValue) row))
 
 
-cellView : ( Int, Int ) -> Html Msg
-cellView ( index, cellValue ) =
+cellView : Int -> Int -> Html Msg
+cellView index cellValue =
     div (List.concat [ cellClass cellValue, [ onClick (ColumnClick index) ] ]) []
 
 
