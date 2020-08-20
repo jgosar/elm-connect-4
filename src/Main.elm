@@ -2,9 +2,9 @@ module Main exposing (Model, Msg(..), init, main, update, view)
 
 import Array exposing (Array)
 import Browser
-import Html exposing (Attribute, Html, br, div, input, node, text)
+import Html exposing (Attribute, Html, div, node)
 import Html.Attributes exposing (..)
-import Html.Events exposing (onClick, onInput)
+import Html.Events exposing (onClick)
 
 
 
@@ -20,10 +20,14 @@ main =
 
 
 type alias Model =
-    { content : String
-    , field : Array (Array Int)
+    { field : Array (Array Int)
     , nextToken : Int
     }
+
+
+init : Model
+init =
+    { field = Array.initialize 6 (always emptyRow), nextToken = 1 }
 
 
 emptyRow : Array Int
@@ -31,37 +35,53 @@ emptyRow =
     Array.initialize 7 (always 0)
 
 
-init : Model
-init =
-    { content = "", field = Array.initialize 6 (always emptyRow), nextToken = 1 }
-
-
 
 -- UPDATE
 
 
 type Msg
-    = Change String
-    | ColumnClick Int
+    = ColumnClick Int
 
 
 update : Msg -> Model -> Model
 update msg model =
     case msg of
-        Change newContent ->
-            { model | content = newContent }
-
         ColumnClick columnIndex ->
             { model
-                | content = String.fromInt columnIndex
-                , nextToken = 3 - model.nextToken
+                | nextToken = 3 - model.nextToken
                 , field = throwToken model.nextToken columnIndex model.field
             }
 
 
 throwToken : Int -> Int -> Array (Array Int) -> Array (Array Int)
 throwToken tokenType columnIndex field =
-    updateCell columnIndex 5 tokenType field
+    if getLowestFreeCell columnIndex field /= Nothing then
+        updateCell columnIndex (Maybe.withDefault 0 (getLowestFreeCell columnIndex field)) tokenType field
+
+    else
+        field
+
+
+getLowestFreeCell : Int -> Array (Array Int) -> Maybe Int
+getLowestFreeCell columnIndex field =
+    getLowestFreeCellAboveX columnIndex field 5
+
+
+getLowestFreeCellAboveX : Int -> Array (Array Int) -> Int -> Maybe Int
+getLowestFreeCellAboveX columnIndex field maxIndex =
+    if maxIndex < 0 then
+        Nothing
+
+    else if getCellValue columnIndex maxIndex field == 0 then
+        Just maxIndex
+
+    else
+        getLowestFreeCellAboveX columnIndex field (maxIndex - 1)
+
+
+getCellValue : Int -> Int -> Array (Array Int) -> Int
+getCellValue columnIndex rowIndex field =
+    Maybe.withDefault 0 (Array.get columnIndex (getRow rowIndex field))
 
 
 updateCell : Int -> Int -> Int -> Array (Array Int) -> Array (Array Int)
@@ -113,8 +133,6 @@ view model =
         [ css "css/styles.css"
         , div
             [ class "connect_4__grid_container" ]
-            [ input [ placeholder "Text to reverse", value model.content, onInput Change ] []
-            , div [] [ text (String.reverse model.content) ]
-            , gridView model.field
+            [ gridView model.field
             ]
         ]
