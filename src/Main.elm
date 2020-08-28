@@ -1,8 +1,8 @@
 module Main exposing (Model, Msg(..), init, main, update, view)
 
-import Array exposing (Array)
+import Array exposing (Array, fromList)
 import Browser
-import Html exposing (Attribute, Html, div, node)
+import Html exposing (Attribute, Html, div, node, text)
 import Html.Attributes exposing (..)
 import Html.Events exposing (onClick)
 
@@ -19,20 +19,33 @@ main =
 -- MODEL
 
 
+fieldHeight =
+    6
+
+
+fieldWidth =
+    7
+
+
+type alias Connect4Field =
+    Array (Array Int)
+
+
 type alias Model =
-    { field : Array (Array Int)
+    { field : Connect4Field
     , nextToken : Int
+    , score : Int
     }
 
 
 init : Model
 init =
-    { field = Array.initialize 6 (always emptyRow), nextToken = 1 }
+    { field = Array.initialize fieldHeight (always emptyRow), nextToken = 1, score = 0 }
 
 
 emptyRow : Array Int
 emptyRow =
-    Array.initialize 7 (always 0)
+    Array.initialize fieldWidth (always 0)
 
 
 
@@ -43,60 +56,203 @@ type Msg
     = ColumnClick Int
 
 
+type alias Coords =
+    { column : Int
+    , row : Int
+    }
+
+
 update : Msg -> Model -> Model
 update msg model =
     case msg of
         ColumnClick columnIndex ->
+            let
+                newField =
+                    throwToken model.nextToken columnIndex model.field
+            in
             { model
                 | nextToken = 3 - model.nextToken
-                , field = throwToken model.nextToken columnIndex model.field
+                , field = newField
+                , score = totalScore 1 newField
             }
 
 
-throwToken : Int -> Int -> Array (Array Int) -> Array (Array Int)
+throwToken : Int -> Int -> Connect4Field -> Connect4Field
 throwToken tokenType columnIndex field =
-    if getLowestFreeCell columnIndex field /= Nothing then
-        updateCell columnIndex (Maybe.withDefault 0 (getLowestFreeCell columnIndex field)) tokenType field
+    let
+        lowestFreeCell =
+            getLowestFreeCell columnIndex field
+    in
+    if lowestFreeCell /= Nothing then
+        updateCell { column = columnIndex, row = Maybe.withDefault 0 lowestFreeCell } tokenType field
 
     else
         field
 
 
-getLowestFreeCell : Int -> Array (Array Int) -> Maybe Int
+getLowestFreeCell : Int -> Connect4Field -> Maybe Int
 getLowestFreeCell columnIndex field =
-    getLowestFreeCellAboveX columnIndex field 5
+    getLowestFreeCellAboveRow columnIndex field (fieldHeight - 1)
 
 
-getLowestFreeCellAboveX : Int -> Array (Array Int) -> Int -> Maybe Int
-getLowestFreeCellAboveX columnIndex field maxIndex =
-    if maxIndex < 0 then
+getLowestFreeCellAboveRow : Int -> Connect4Field -> Int -> Maybe Int
+getLowestFreeCellAboveRow columnIndex field maxRow =
+    if maxRow < 0 then
         Nothing
 
-    else if getCellValue columnIndex maxIndex field == 0 then
-        Just maxIndex
+    else if getCellValue field { column = columnIndex, row = maxRow } == 0 then
+        Just maxRow
 
     else
-        getLowestFreeCellAboveX columnIndex field (maxIndex - 1)
+        getLowestFreeCellAboveRow columnIndex field (maxRow - 1)
 
 
-getCellValue : Int -> Int -> Array (Array Int) -> Int
-getCellValue columnIndex rowIndex field =
-    Maybe.withDefault 0 (Array.get columnIndex (getRow rowIndex field))
+getCellValue : Connect4Field -> Coords -> Int
+getCellValue field coords =
+    Maybe.withDefault 0 (Array.get coords.column (getRow coords.row field))
 
 
-updateCell : Int -> Int -> Int -> Array (Array Int) -> Array (Array Int)
-updateCell columnIndex rowIndex newValue field =
-    updateRow rowIndex (Array.set columnIndex newValue) field
+updateCell : Coords -> Int -> Connect4Field -> Connect4Field
+updateCell coords newValue field =
+    updateRow coords.row (Array.set coords.column newValue) field
 
 
-updateRow : Int -> (Array Int -> Array Int) -> Array (Array Int) -> Array (Array Int)
+updateRow : Int -> (Array Int -> Array Int) -> Connect4Field -> Connect4Field
 updateRow rowIndex updateFunction field =
     Array.set rowIndex (updateFunction (getRow rowIndex field)) field
 
 
-getRow : Int -> Array (Array Int) -> Array Int
+getRow : Int -> Connect4Field -> Array Int
 getRow rowIndex field =
     Maybe.withDefault emptyRow (Array.get rowIndex field)
+
+
+
+--RATINGS
+
+
+type ComboDirection
+    = Right
+    | RightDown
+    | Down
+    | LeftDown
+
+
+totalScore : Int -> Connect4Field -> Int
+totalScore tokenType field =
+    cellScore field tokenType { column = 0, row = 0 }
+
+
+cellScore : Connect4Field -> Int -> Coords -> Int
+cellScore field tokenType coords =
+    let
+        directions =
+            Array.fromList [ Right, RightDown, Down, LeftDown ]
+
+        cellGroups =
+            Array.map (\direction -> getCoordsList 4 direction field coords) directions
+    in
+    List.sum (Array.toList (Array.map (\cellGroup -> convertToScore (countGoodTokens tokenType field cellGroup)) cellGroups))
+
+
+convertToScore : Int -> Int
+convertToScore goodTokens =
+    if goodTokens == 4 then
+        1000000
+
+    else if goodTokens == 3 then
+        100
+
+    else if goodTokens == 2 then
+        10
+
+    else if goodTokens == 1 then
+        1
+
+    else
+        0
+
+
+countGoodTokens : Int -> Connect4Field -> Maybe (Array Coords) -> Int
+countGoodTokens tokenType field coordsList =
+    case coordsList of
+        Nothing ->
+            0
+
+        Just coordsListValue ->
+            let
+                tokens =
+                    Array.map (getCellValue field) coordsListValue
+
+                goodTokensCount =
+                    Array.length (Array.filter (\token -> token == tokenType) tokens)
+
+                badTokensCount =
+                    Array.length (Array.filter (\token -> token /= tokenType && token /= 0) tokens)
+            in
+            if badTokensCount > 0 then
+                0
+
+            else
+                goodTokensCount
+
+
+getCoordsList : Int -> ComboDirection -> Connect4Field -> Coords -> Maybe (Array Coords)
+getCoordsList length direction field coords =
+    if length == 0 then
+        Just (Array.fromList [])
+
+    else
+        let
+            nextCoords =
+                getNextCoords coords direction
+
+            nextCoordsList =
+                unMaybeMap (getCoordsList (length - 1) direction field) nextCoords
+        in
+        Maybe.map (Array.push coords) nextCoordsList
+
+
+unMaybeMap : (a -> Maybe b) -> Maybe a -> Maybe b
+unMaybeMap x y =
+    unMaybe (Maybe.map x y)
+
+
+unMaybe : Maybe (Maybe a) -> Maybe a
+unMaybe x =
+    case x of
+        Nothing ->
+            Nothing
+
+        Just innerX ->
+            innerX
+
+
+getNextCoords : Coords -> ComboDirection -> Maybe Coords
+getNextCoords coords direction =
+    if direction == Right then
+        validateCoords { column = coords.column + 1, row = coords.row }
+
+    else if direction == RightDown then
+        validateCoords { column = coords.column + 1, row = coords.row + 1 }
+
+    else if direction == Down then
+        validateCoords { column = coords.column, row = coords.row + 1 }
+
+    else if direction == LeftDown then
+        validateCoords { column = coords.column - 1, row = coords.row + 1 }
+
+    else
+        Nothing
+
+
+validateCoords : Coords -> Maybe Coords
+validateCoords coords =
+    if coords.column >= 0 && coords.column < fieldWidth && coords.row >= 0 && coords.row < fieldHeight then
+        Just coords
+
+    else
+        Nothing
 
 
 
@@ -107,7 +263,7 @@ css path =
     node "link" [ rel "stylesheet", href path ] []
 
 
-gridView : Array (Array Int) -> Html Msg
+gridView : Connect4Field -> Html Msg
 gridView grid =
     div [ class "connect_4__grid" ] (Array.toList (Array.map (\row -> rowView row) grid))
 
@@ -134,5 +290,6 @@ view model =
         , div
             [ class "connect_4__grid_container" ]
             [ gridView model.field
+            , div [] [ text (String.fromInt model.score) ]
             ]
         ]
