@@ -34,13 +34,14 @@ type alias Connect4Field =
 type alias Model =
     { field : Connect4Field
     , nextToken : Int
-    , score : Int
+    , redScore : Int
+    , yellowScore : Int
     }
 
 
 init : Model
 init =
-    { field = Array.initialize fieldHeight (always emptyRow), nextToken = 1, score = 0 }
+    { field = Array.initialize fieldHeight (always emptyRow), nextToken = 1, redScore = 0, yellowScore = 0 }
 
 
 emptyRow : Array Int
@@ -73,7 +74,8 @@ update msg model =
             { model
                 | nextToken = 3 - model.nextToken
                 , field = newField
-                , score = totalScore 1 newField
+                , redScore = totalScore 1 newField
+                , yellowScore = totalScore 2 newField
             }
 
 
@@ -140,7 +142,17 @@ type ComboDirection
 
 totalScore : Int -> Connect4Field -> Int
 totalScore tokenType field =
-    cellScore field tokenType { column = 0, row = 0 }
+    List.sum (Array.toList (Array.map (cellScore field tokenType) getAllCoords))
+
+
+getAllCoords : Array Coords
+getAllCoords =
+    flatten (Array.map getRowCoords (Array.fromList (List.range 0 (fieldHeight - 1))))
+
+
+getRowCoords : Int -> Array Coords
+getRowCoords row =
+    Array.map (\column -> { column = column, row = row }) (Array.fromList (List.range 0 (fieldWidth - 1)))
 
 
 cellScore : Connect4Field -> Int -> Coords -> Int
@@ -199,8 +211,8 @@ countGoodTokens tokenType field coordsList =
 
 getCoordsList : Int -> ComboDirection -> Connect4Field -> Coords -> Maybe (Array Coords)
 getCoordsList length direction field coords =
-    if length == 0 then
-        Just (Array.fromList [])
+    if length == 1 then
+        Just (Array.fromList [ coords ])
 
     else
         let
@@ -211,21 +223,6 @@ getCoordsList length direction field coords =
                 unMaybeMap (getCoordsList (length - 1) direction field) nextCoords
         in
         Maybe.map (Array.push coords) nextCoordsList
-
-
-unMaybeMap : (a -> Maybe b) -> Maybe a -> Maybe b
-unMaybeMap x y =
-    unMaybe (Maybe.map x y)
-
-
-unMaybe : Maybe (Maybe a) -> Maybe a
-unMaybe x =
-    case x of
-        Nothing ->
-            Nothing
-
-        Just innerX ->
-            innerX
 
 
 getNextCoords : Coords -> ComboDirection -> Maybe Coords
@@ -253,6 +250,30 @@ validateCoords coords =
 
     else
         Nothing
+
+
+
+-- UTILS
+
+
+unMaybeMap : (a -> Maybe b) -> Maybe a -> Maybe b
+unMaybeMap x y =
+    unMaybe (Maybe.map x y)
+
+
+unMaybe : Maybe (Maybe a) -> Maybe a
+unMaybe x =
+    case x of
+        Nothing ->
+            Nothing
+
+        Just innerX ->
+            innerX
+
+
+flatten : Array (Array a) -> Array a
+flatten array =
+    Array.foldr Array.append (Array.fromList []) array
 
 
 
@@ -290,6 +311,7 @@ view model =
         , div
             [ class "connect_4__grid_container" ]
             [ gridView model.field
-            , div [] [ text (String.fromInt model.score) ]
+            , div [ class "connect_4__score--red" ] [ text (String.fromInt model.redScore) ]
+            , div [ class "connect_4__score--yellow" ] [ text (String.fromInt model.yellowScore) ]
             ]
         ]

@@ -39,3 +39,14 @@
 .connect_4__cell--value_2 {
   background-color: #cccc11;
 }
+
+.connect_4__score {
+}
+
+.connect_4__score--red {
+  background-color: red;
+}
+
+.connect_4__score--yellow {
+  background-color: yellow;
+}
