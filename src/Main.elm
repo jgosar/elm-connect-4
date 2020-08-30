@@ -34,15 +34,13 @@ type alias Connect4Field =
 type alias Model =
     { field : Connect4Field
     , nextToken : Int
-    , redScore : Int
-    , yellowScore : Int
     , winner : Int
     }
 
 
 init : Model
 init =
-    { field = Array.initialize fieldHeight (always emptyRow), nextToken = 1, redScore = 0, yellowScore = 0, winner = 0 }
+    { field = Array.initialize fieldHeight (always emptyRow), nextToken = 1, winner = 0 }
 
 
 emptyRow : Array Int
@@ -91,8 +89,6 @@ update msg model =
                 { model
                     | nextToken = nextToken2
                     , field = newField2
-                    , redScore = totalScore 1 newField2
-                    , yellowScore = totalScore 2 newField2
                     , winner = getWinner newField2
                 }
 
@@ -403,8 +399,6 @@ view model =
                         model
                     )
                     [ gridView model.field
-                    , div [ class "connect_4__score connect_4__score--red" ] [ text (String.fromInt model.redScore) ]
-                    , div [ class "connect_4__score connect_4__score--yellow" ] [ text (String.fromInt model.yellowScore) ]
                     ]
                 )
                 (conditionalWinnerDisplay
