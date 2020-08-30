@@ -71,26 +71,31 @@ update msg model =
 
             else
                 let
-                    newField1 =
-                        throwToken model.nextToken columnIndex model.field
-
-                    nextToken1 =
-                        3 - model.nextToken
-
-                    computersMove =
-                        getBestMove nextToken1 newField1 3
-
-                    newField2 =
-                        throwToken nextToken1 (Tuple.first computersMove) newField1
-
-                    nextToken2 =
-                        3 - nextToken1
+                    model1 =
+                        playMove model columnIndex
                 in
-                { model
-                    | nextToken = nextToken2
-                    , field = newField2
-                    , winner = getWinner newField2
-                }
+                if getWinner model1.field /= 0 then
+                    model1
+
+                else
+                    let
+                        computersMove =
+                            getBestMove model1.nextToken model1.field 3
+                    in
+                    playMove model1 (Tuple.first computersMove)
+
+
+playMove : Model -> Int -> Model
+playMove model column =
+    let
+        newField =
+            throwToken model.nextToken column model.field
+    in
+    { model
+        | nextToken = 3 - model.nextToken
+        , field = newField
+        , winner = getWinner newField
+    }
 
 
 throwToken : Int -> Int -> Connect4Field -> Connect4Field
