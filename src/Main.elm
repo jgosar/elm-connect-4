@@ -36,12 +36,13 @@ type alias Model =
     , nextToken : Int
     , redScore : Int
     , yellowScore : Int
+    , winner : Int
     }
 
 
 init : Model
 init =
-    { field = Array.initialize fieldHeight (always emptyRow), nextToken = 1, redScore = 0, yellowScore = 0 }
+    { field = Array.initialize fieldHeight (always emptyRow), nextToken = 1, redScore = 0, yellowScore = 0, winner = 0 }
 
 
 emptyRow : Array Int
@@ -67,28 +68,33 @@ update : Msg -> Model -> Model
 update msg model =
     case msg of
         ColumnClick columnIndex ->
-            let
-                newField1 =
-                    throwToken model.nextToken columnIndex model.field
+            if getWinner model.field /= 0 then
+                model
 
-                nextToken1 =
-                    3 - model.nextToken
+            else
+                let
+                    newField1 =
+                        throwToken model.nextToken columnIndex model.field
 
-                computersMove =
-                    getBestMove nextToken1 newField1 3
+                    nextToken1 =
+                        3 - model.nextToken
 
-                newField2 =
-                    throwToken nextToken1 (Tuple.first computersMove) newField1
+                    computersMove =
+                        getBestMove nextToken1 newField1 3
 
-                nextToken2 =
-                    3 - nextToken1
-            in
-            { model
-                | nextToken = nextToken2
-                , field = newField2
-                , redScore = totalScore 1 newField2
-                , yellowScore = totalScore 2 newField2
-            }
+                    newField2 =
+                        throwToken nextToken1 (Tuple.first computersMove) newField1
+
+                    nextToken2 =
+                        3 - nextToken1
+                in
+                { model
+                    | nextToken = nextToken2
+                    , field = newField2
+                    , redScore = totalScore 1 newField2
+                    , yellowScore = totalScore 2 newField2
+                    , winner = getWinner newField2
+                }
 
 
 throwToken : Int -> Int -> Connect4Field -> Connect4Field
@@ -270,7 +276,14 @@ validateCoords coords =
 
 getNextMoveScores : Int -> Connect4Field -> Int -> Array ( Int, Int )
 getNextMoveScores tokenType field depth =
-    Array.map (\column -> ( column, getNextMoveScore tokenType field depth column )) (Array.fromList (List.range 0 (fieldWidth - 1)))
+    let
+        allColumns =
+            Array.fromList (List.range 0 (fieldWidth - 1))
+
+        possibleMoves =
+            Array.filter (\column -> getLowestFreeCell column field /= Nothing) allColumns
+    in
+    Array.map (\column -> ( column, getNextMoveScore tokenType field depth column )) possibleMoves
 
 
 getNextMoveScore : Int -> Connect4Field -> Int -> Int -> Int
@@ -366,14 +379,36 @@ cellClass cellValue =
     [ class "connect_4__cell", class (String.concat [ "connect_4__cell--value_", String.fromInt cellValue ]) ]
 
 
+conditionalWinnerDisplay : Model -> List (Html Msg)
+conditionalWinnerDisplay model =
+    if model.winner == 1 then
+        [ div [ class "connect_4__winner connect_4__winner--red" ] [ text "🎉Winner: Red🎉" ] ]
+
+    else if model.winner == 2 then
+        [ div [ class "connect_4__winner connect_4__winner--yellow" ] [ text "🎉Winner: Yellow🎉" ] ]
+
+    else
+        []
+
+
 view : Model -> Html Msg
 view model =
     div []
         [ css "css/styles.css"
         , div
             [ class "connect_4__grid_container" ]
-            [ gridView model.field
-            , div [ class "connect_4__score--red" ] [ text (String.fromInt model.redScore) ]
-            , div [ class "connect_4__score--yellow" ] [ text (String.fromInt model.yellowScore) ]
-            ]
+            (List.append
+                (List.append
+                    (conditionalWinnerDisplay
+                        model
+                    )
+                    [ gridView model.field
+                    , div [ class "connect_4__score connect_4__score--red" ] [ text (String.fromInt model.redScore) ]
+                    , div [ class "connect_4__score connect_4__score--yellow" ] [ text (String.fromInt model.yellowScore) ]
+                    ]
+                )
+                (conditionalWinnerDisplay
+                    model
+                )
+            )
         ]

@@ -41,6 +41,7 @@
 }
 
 .connect_4__score {
+  display: none;
 }
 
 .connect_4__score--red {
@@ -48,5 +49,19 @@
 }
 
 .connect_4__score--yellow {
+  background-color: yellow;
+}
+
+.connect_4__winner {
+  font-size: calc(0.1 * var(--grid-width));
+  width: var(--grid-width);
+  text-align: center;
+}
+
+.connect_4__winner--red {
+  background-color: red;
+}
+
+.connect_4__winner--yellow {
   background-color: yellow;
 }
