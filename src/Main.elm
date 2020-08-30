@@ -68,14 +68,26 @@ update msg model =
     case msg of
         ColumnClick columnIndex ->
             let
-                newField =
+                newField1 =
                     throwToken model.nextToken columnIndex model.field
+
+                nextToken1 =
+                    3 - model.nextToken
+
+                computersMove =
+                    getBestMove nextToken1 newField1 3
+
+                newField2 =
+                    throwToken nextToken1 (Tuple.first computersMove) newField1
+
+                nextToken2 =
+                    3 - nextToken1
             in
             { model
-                | nextToken = 3 - model.nextToken
-                , field = newField
-                , redScore = totalScore 1 newField
-                , yellowScore = totalScore 2 newField
+                | nextToken = nextToken2
+                , field = newField2
+                , redScore = totalScore 1 newField2
+                , yellowScore = totalScore 2 newField2
             }
 
 
@@ -130,7 +142,7 @@ getRow rowIndex field =
 
 
 
---RATINGS
+--SCORES
 
 
 type ComboDirection
@@ -250,6 +262,56 @@ validateCoords coords =
 
     else
         Nothing
+
+
+
+-- MOVE PLANNING
+
+
+getNextMoveScores : Int -> Connect4Field -> Int -> Array ( Int, Int )
+getNextMoveScores tokenType field depth =
+    Array.map (\column -> ( column, getNextMoveScore tokenType field depth column )) (Array.fromList (List.range 0 (fieldWidth - 1)))
+
+
+getNextMoveScore : Int -> Connect4Field -> Int -> Int -> Int
+getNextMoveScore tokenType field depth column =
+    let
+        newField =
+            throwToken tokenType column field
+    in
+    if getWinner newField == tokenType || depth == 0 then
+        totalScore tokenType newField - totalScore (3 - tokenType) newField
+
+    else
+        let
+            opponentsMove =
+                getBestMove (3 - tokenType) newField (depth - 1)
+        in
+        0 - Tuple.second opponentsMove
+
+
+getBestMove : Int -> Connect4Field -> Int -> ( Int, Int )
+getBestMove tokenType field depth =
+    let
+        nextMoveScores =
+            getNextMoveScores tokenType field depth
+
+        maxScore =
+            Maybe.withDefault 0 (List.maximum (Array.toList (Array.map Tuple.second nextMoveScores)))
+    in
+    Maybe.withDefault ( 0, 0 ) (Array.get 0 (Array.filter (\moveScore -> Tuple.second moveScore == maxScore) nextMoveScores))
+
+
+getWinner : Connect4Field -> Int
+getWinner field =
+    if totalScore 1 field > 1000000 then
+        1
+
+    else if totalScore 2 field > 1000000 then
+        2
+
+    else
+        0
 
 
 
