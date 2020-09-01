@@ -27,6 +27,14 @@ fieldWidth =
     7
 
 
+allCoords =
+    flatten (Array.map getRowCoords (Array.fromList (List.range 0 (fieldHeight - 1))))
+
+
+allCellCombos =
+    flatten (Array.map combosForCell allCoords)
+
+
 type alias Connect4Field =
     Array (Array Int)
 
@@ -149,7 +157,7 @@ getRow rowIndex field =
 
 
 
---SCORES
+--CELL COMBOS
 
 
 type ComboDirection
@@ -159,14 +167,69 @@ type ComboDirection
     | LeftDown
 
 
+combosForCell : Coords -> Array (Maybe (Array Coords))
+combosForCell coords =
+    let
+        directions =
+            Array.fromList [ Right, RightDown, Down, LeftDown ]
+    in
+    Array.map (\direction -> getComboForCellAndDirection 4 direction coords) directions
+
+
+getComboForCellAndDirection : Int -> ComboDirection -> Coords -> Maybe (Array Coords)
+getComboForCellAndDirection length direction coords =
+    if length == 1 then
+        Just (Array.fromList [ coords ])
+
+    else
+        let
+            nextCoords =
+                getNextCoords coords direction
+
+            nextCoordsList =
+                unMaybeMap (getComboForCellAndDirection (length - 1) direction) nextCoords
+        in
+        Maybe.map (Array.push coords) nextCoordsList
+
+
+getNextCoords : Coords -> ComboDirection -> Maybe Coords
+getNextCoords coords direction =
+    if direction == Right then
+        validateCoords { column = coords.column + 1, row = coords.row }
+
+    else if direction == RightDown then
+        validateCoords { column = coords.column + 1, row = coords.row + 1 }
+
+    else if direction == Down then
+        validateCoords { column = coords.column, row = coords.row + 1 }
+
+    else if direction == LeftDown then
+        validateCoords { column = coords.column - 1, row = coords.row + 1 }
+
+    else
+        Nothing
+
+
+validateCoords : Coords -> Maybe Coords
+validateCoords coords =
+    if coords.column >= 0 && coords.column < fieldWidth && coords.row >= 0 && coords.row < fieldHeight then
+        Just coords
+
+    else
+        Nothing
+
+
+
+--SCORES
+
+
 totalScore : Int -> Connect4Field -> Int
 totalScore tokenType field =
-    List.sum (Array.toList (Array.map (cellScore field tokenType) getAllCoords))
+    List.sum (Array.toList (Array.map (\combo -> convertToScore (countGoodTokens tokenType field combo)) allCellCombos))
 
 
-getAllCoords : Array Coords
-getAllCoords =
-    flatten (Array.map getRowCoords (Array.fromList (List.range 0 (fieldHeight - 1))))
+
+--List.sum (Array.toList (Array.map (cellScore field tokenType) getAllCoords))
 
 
 getRowCoords : Int -> Array Coords
@@ -174,16 +237,10 @@ getRowCoords row =
     Array.map (\column -> { column = column, row = row }) (Array.fromList (List.range 0 (fieldWidth - 1)))
 
 
-cellScore : Connect4Field -> Int -> Coords -> Int
-cellScore field tokenType coords =
-    let
-        directions =
-            Array.fromList [ Right, RightDown, Down, LeftDown ]
 
-        cellGroups =
-            Array.map (\direction -> getCoordsList 4 direction field coords) directions
-    in
-    List.sum (Array.toList (Array.map (\cellGroup -> convertToScore (countGoodTokens tokenType field cellGroup)) cellGroups))
+--cellScore : Connect4Field -> Int -> Coords -> Int
+--cellScore field tokenType coords =
+--    List.sum (Array.toList (Array.map (\combo -> convertToScore (countGoodTokens tokenType field combo)) (combosForCell coords)))
 
 
 convertToScore : Int -> Int
@@ -226,49 +283,6 @@ countGoodTokens tokenType field coordsList =
 
             else
                 goodTokensCount
-
-
-getCoordsList : Int -> ComboDirection -> Connect4Field -> Coords -> Maybe (Array Coords)
-getCoordsList length direction field coords =
-    if length == 1 then
-        Just (Array.fromList [ coords ])
-
-    else
-        let
-            nextCoords =
-                getNextCoords coords direction
-
-            nextCoordsList =
-                unMaybeMap (getCoordsList (length - 1) direction field) nextCoords
-        in
-        Maybe.map (Array.push coords) nextCoordsList
-
-
-getNextCoords : Coords -> ComboDirection -> Maybe Coords
-getNextCoords coords direction =
-    if direction == Right then
-        validateCoords { column = coords.column + 1, row = coords.row }
-
-    else if direction == RightDown then
-        validateCoords { column = coords.column + 1, row = coords.row + 1 }
-
-    else if direction == Down then
-        validateCoords { column = coords.column, row = coords.row + 1 }
-
-    else if direction == LeftDown then
-        validateCoords { column = coords.column - 1, row = coords.row + 1 }
-
-    else
-        Nothing
-
-
-validateCoords : Coords -> Maybe Coords
-validateCoords coords =
-    if coords.column >= 0 && coords.column < fieldWidth && coords.row >= 0 && coords.row < fieldHeight then
-        Just coords
-
-    else
-        Nothing
 
 
 
