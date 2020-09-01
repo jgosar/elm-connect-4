@@ -2,9 +2,10 @@ module Main exposing (Model, Msg(..), init, main, update, view)
 
 import Array exposing (Array, fromList)
 import Browser
-import Html exposing (Attribute, Html, div, node, text)
+import Html exposing (Attribute, Html, a, div, node, text)
 import Html.Attributes exposing (..)
 import Html.Events exposing (onClick)
+import Maybe.Extra exposing (values)
 
 
 
@@ -167,13 +168,13 @@ type ComboDirection
     | LeftDown
 
 
-combosForCell : Coords -> Array (Maybe (Array Coords))
+combosForCell : Coords -> Array (Array Coords)
 combosForCell coords =
     let
         directions =
             Array.fromList [ Right, RightDown, Down, LeftDown ]
     in
-    Array.map (\direction -> getComboForCellAndDirection 4 direction coords) directions
+    removeNothings (Array.map (\direction -> getComboForCellAndDirection 4 direction coords) directions)
 
 
 getComboForCellAndDirection : Int -> ComboDirection -> Coords -> Maybe (Array Coords)
@@ -251,28 +252,23 @@ convertToScore goodTokens =
         0
 
 
-countGoodTokens : Int -> Connect4Field -> Maybe (Array Coords) -> Int
+countGoodTokens : Int -> Connect4Field -> Array Coords -> Int
 countGoodTokens tokenType field coordsList =
-    case coordsList of
-        Nothing ->
-            0
+    let
+        tokens =
+            Array.map (getCellValue field) coordsList
 
-        Just coordsListValue ->
-            let
-                tokens =
-                    Array.map (getCellValue field) coordsListValue
+        goodTokensCount =
+            Array.length (Array.filter (\token -> token == tokenType) tokens)
 
-                goodTokensCount =
-                    Array.length (Array.filter (\token -> token == tokenType) tokens)
+        badTokensCount =
+            Array.length (Array.filter (\token -> token /= tokenType && token /= 0) tokens)
+    in
+    if badTokensCount > 0 then
+        0
 
-                badTokensCount =
-                    Array.length (Array.filter (\token -> token /= tokenType && token /= 0) tokens)
-            in
-            if badTokensCount > 0 then
-                0
-
-            else
-                goodTokensCount
+    else
+        goodTokensCount
 
 
 
@@ -334,6 +330,11 @@ getWinner field =
 
 
 -- UTILS
+
+
+removeNothings : Array (Maybe a) -> Array a
+removeNothings array =
+    Array.fromList (Maybe.Extra.values (Array.toList array))
 
 
 unMaybeMap : (a -> Maybe b) -> Maybe a -> Maybe b
