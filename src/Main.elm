@@ -228,19 +228,9 @@ totalScore tokenType field =
     List.sum (Array.toList (Array.map (\combo -> convertToScore (countGoodTokens tokenType field combo)) allCellCombos))
 
 
-
---List.sum (Array.toList (Array.map (cellScore field tokenType) getAllCoords))
-
-
 getRowCoords : Int -> Array Coords
 getRowCoords row =
     Array.map (\column -> { column = column, row = row }) (Array.fromList (List.range 0 (fieldWidth - 1)))
-
-
-
---cellScore : Connect4Field -> Int -> Coords -> Int
---cellScore field tokenType coords =
---    List.sum (Array.toList (Array.map (\combo -> convertToScore (countGoodTokens tokenType field combo)) (combosForCell coords)))
 
 
 convertToScore : Int -> Int
