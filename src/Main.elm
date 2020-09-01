@@ -89,7 +89,7 @@ update msg model =
                 else
                     let
                         computersMove =
-                            getBestMove model1.nextToken model1.field 3
+                            getBestMove model1.nextToken model1.field 4
                     in
                     playMove model1 (Tuple.first computersMove)
 
